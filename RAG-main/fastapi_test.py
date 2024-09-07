@@ -37,7 +37,7 @@ app.add_middleware(
 # """
 # )
 
-folder_path = "RAG-main/db"
+folder_path = "SIH24_backend/RAG-main/db"
 # embedding = FastEmbedEmbeddings()
 embedding_function = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2", model_kwargs={'device': 'cpu'})
 
@@ -84,7 +84,7 @@ async def ai_post(request: Request):
 @app.post("/pdf")
 async def pdf_post(file: UploadFile = File(...)):
     file_name = file.filename
-    save_file = f"RAG-main/pdf/{file_name}"
+    save_file = f"SIH24_backend/RAG-main/pdf/{file_name}"
     
     async with aiofiles.open(save_file, "wb") as buffer:
         content = await file.read()
