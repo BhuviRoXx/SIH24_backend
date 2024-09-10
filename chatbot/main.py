@@ -16,7 +16,6 @@ class QueryRequest(BaseModel):
     user_id: str
     question: str
     pdf: Optional[UploadFile] = None
-    mp3: Optional[UploadFile] = None
     video: Optional[UploadFile] = None
 
 
@@ -73,4 +72,4 @@ async def query(
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8080)
