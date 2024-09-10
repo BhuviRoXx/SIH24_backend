@@ -1,5 +1,5 @@
 from typing import Literal
-
+# import google.generativeai as genai
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_groq import ChatGroq
@@ -8,7 +8,9 @@ import os
 import dotenv
 
 dotenv.load_dotenv()
-
+# GOOGLE_API_KEY = "AIzaSyC5gv15479xiPka5pH4iYgphdPyrFKDuz4"
+# genai.configure(api_key=GOOGLE_API_KEY)
+# model = genai.GenerativeModel('gemini-pro')
 
 class RouteQuery(BaseModel):
     """Route a user query to the most relevant datasource."""
@@ -32,7 +34,7 @@ Follow these guidelines to make your decision:
 
 Route to "common_node" if:
 
-The query is about general company policies, procedures, or global information.
+The query is about general company policies,HR polices, procedures,company events ,or global information.
 The question relates to company-wide support, products, or services.
 The inquiry is about standard practices, regulations, or information that applies to all employees or departments.
 The query doesn't mention or imply any user-specific context.
@@ -58,13 +60,16 @@ Examples:
 "What are the company's core values?" -> common_node
 "Can you summarize my performance review from last quarter?" -> user_node
 
-Your output should be either "common_node" or "user_node" based on your analysis of the user's query. Remember, route to the common node for global, company-wide information, and to the user node for personalized, user-specific data.
+Your output should only be either "common_node" or "user_node" based on your analysis of the user's query. Remember, route to the common node for global, company-wide information, and to the user node for personalized, user-specific data.
         """
+        
+    print(system)
     route_prompt = ChatPromptTemplate.from_messages(
         [
             ("system", system),
             ("human", "{question}"),
         ]
     )
+    print(route_prompt)
 
     return route_prompt | structured_llm_router

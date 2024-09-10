@@ -86,7 +86,7 @@ def perform_similarity_search(query_embedding, user_type, user_id=None, top_k=10
         top_docs = [
             (documents[i][0], documents[i][1], distances[i]) for i in top_k_indices
         ]
-
+    driver.close()
     return sorted(top_docs, key=lambda x: x[2], reverse=True)
 
 
@@ -115,6 +115,7 @@ def store_embeddings_in_neo4j(documents, embeddings, user_id=None):
                 content=doc.page_content,
                 embedding=embedding,
             )
+    driver.close()
 
 
 def get_prompt(context, query_text):

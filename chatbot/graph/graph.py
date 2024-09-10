@@ -40,7 +40,6 @@ def graph():
             "common_node": "neo4j_common_node",
             "user_node": "neo4j_user_node",
             "update_knowledge_graph": "update_knowledge_graph",
-            "video_processing": "video_processing",
         },
     )
     workflow.add_edge("neo4j_common_node", "generate")

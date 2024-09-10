@@ -13,6 +13,7 @@ import requests
 import pdfplumber
 from io import BytesIO
 import sys, io
+import google.generativeai as genai
 
 from models.route_query import obtain_question_router
 from models.model_generation import obtain_rag_chain
@@ -25,6 +26,10 @@ from utils.utils import (
     store_embeddings_in_neo4j,
     get_prompt,
 )
+
+GOOGLE_API_KEY = "AIzaSyC5gv15479xiPka5pH4iYgphdPyrFKDuz4"
+genai.configure(api_key=GOOGLE_API_KEY)
+model = genai.GenerativeModel('gemini-pro')
 
 
 def route(state):
@@ -129,9 +134,11 @@ def generate(state):
     question = state["question"]
     documents = state["documents"]
 
-    rag_chain = obtain_rag_chain()
+    rag_chain = obtain_rag_chain(documents,question)
     # RAG generation
-    generation = rag_chain.invoke({"context": documents, "question": question})
+    # generation = rag_chain.invoke({"context": documents, "question": question})
+    response = model.generate_content(rag_chain)
+    generation = response.text
     return {"documents": documents, "question": question, "generation": generation}
 
 

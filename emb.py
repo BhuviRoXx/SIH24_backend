@@ -142,6 +142,8 @@ def chatbot(user_type, user_id):
     # Generate the response using Gemini
     prompt = f"""
     You are a helpful assistant with access to specific documents. Please follow these guidelines:
+
+    If there is any bad language, you should first give an warning and procced with the output
     
     0. **Output**: Should be descriptive with respect to the question in three (3) lines.
 

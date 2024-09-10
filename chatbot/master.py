@@ -58,6 +58,8 @@ async def generate_session():
 
 # Route to handle incoming messages and bot response
 class QueryRequest(BaseModel):
+    session_id: str
+    session_title: str = "Default Title"
     user_id: str
     question: str
     pdf: Optional[UploadFile] = None
@@ -68,7 +70,8 @@ class QueryRequest(BaseModel):
 async def receive_message(user_id: str = Form(...),
     question: str = Form(...),
     pdf: Optional[UploadFile] = File(None),
-    video: Optional[UploadFile] = File(None),):
+    video: Optional[UploadFile] = File(None)):
+    print("query recived")
     connection = get_db_connection()
     if not connection:
         raise HTTPException(status_code=500, detail="Failed to connect to the database")
@@ -78,11 +81,12 @@ async def receive_message(user_id: str = Form(...),
 
         # Insert the user's message into the database
         user_message_query = "INSERT INTO messages (session_id, session_title, sender, text) VALUES (%s, %s, %s, %s)"
-        cursor.execute(user_message_query, (request.session_id, request.session_title, 'user', request.query))
+        cursor.execute(user_message_query, ("1", "cletus", 'user', question))
         connection.commit()
-
+        print("DB UPDATED")
         # Dummy bot response (you can replace this with AI response logic)
         graph_app = graph()
+        print("GRAPH COMPILED")
     # Access the uploaded files
         filename = Optional[str]
         if pdf:
@@ -125,7 +129,7 @@ async def receive_message(user_id: str = Form(...),
 
         # Insert the bot's response into the database
         bot_message_query = "INSERT INTO messages (session_id, session_title, sender, text) VALUES (%s, %s, %s, %s)"
-        cursor.execute(bot_message_query, (request.session_id, request.session_title, 'bot', bot_reply))
+        cursor.execute(bot_message_query, ("1", "cletus", 'bot', bot_reply))
         connection.commit()
 
     except mysql.connector.Error as e:
