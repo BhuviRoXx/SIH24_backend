@@ -1,10 +1,11 @@
-import requests
 from langchain.text_splitter import TokenTextSplitter
 from langchain.schema import Document
 from neo4j import GraphDatabase
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import google.generativeai as genai
+import requests
+import pdfplumber
 
 # Initialize Neo4j Aura connection
 uri = "neo4j+s://332e43eb.databases.neo4j.io"  # Your Neo4j Aura URI
@@ -13,7 +14,7 @@ password = "ZyvWu0bndBWMNu6lYlb5Fa3PkfsrWXes-gg0DPrAZLc"
 driver = GraphDatabase.driver(uri, auth=(username, password))
 
 # Initialize Gemini
-GOOGLE_API_KEY = "AIzaSyDRIIeaCaEu45HX2ykLe64EQcA9gH4RIzI"
+GOOGLE_API_KEY = "AIzaSyC5gv15479xiPka5pH4iYgphdPyrFKDuz4"
 genai.configure(api_key=GOOGLE_API_KEY)
 model = genai.GenerativeModel('gemini-pro')
 
@@ -41,20 +42,39 @@ def get_jina_embeddings(texts):
         raise Exception(f"Error fetching embeddings: {response.status_code}, {response.text}")
 
 # Function to create Neo4j nodes for each document and store embeddings
-def store_embeddings_in_neo4j(documents, embeddings):
+def store_embeddings_in_neo4j(documents, embeddings, user_type, user_id=None):
     with driver.session() as session:
         for i, (doc, embedding) in enumerate(zip(documents, embeddings)):
-            session.run("""
-                CREATE (d:Document {id: $id, content: $content, embedding: $embedding})
-                """, id=i, content=doc.page_content, embedding=embedding)
+            if user_type == 'common':
+                session.run("""
+                    MERGE (c:Common)
+                    CREATE (d:Document {id: $id, content: $content, embedding: $embedding})
+                    MERGE (c)-[:HAS_DOCUMENT]->(d)
+                    """, id=i, content=doc.page_content, embedding=embedding)
+            else:
+                # Create User node and sub-node with user ID
+                session.run("""
+                    MERGE (u:User)
+                    MERGE (userID:UserID {id: $user_id})
+                    CREATE (d:Document {id: $id, content: $content, embedding: $embedding})
+                    MERGE (u)-[:HAS_USER]->(userID)
+                    MERGE (userID)-[:HAS_DOCUMENT]->(d)
+                    """, user_id=user_id, id=i, content=doc.page_content, embedding=embedding)
 
 # Function to perform similarity search using cosine similarity
-def perform_similarity_search(query_embedding, top_k=10):
+def perform_similarity_search(query_embedding, user_type, user_id=None, top_k=10):
     with driver.session() as session:
-        result = session.run("""
-            MATCH (d:Document)
-            RETURN d.id AS id, d.content AS content, d.embedding AS embedding
-        """)
+        if user_type == 'common':
+            result = session.run("""
+                MATCH (c:Common)-[:HAS_DOCUMENT]->(d:Document)
+                RETURN d.id AS id, d.content AS content, d.embedding AS embedding
+            """)
+        else:
+            result = session.run("""
+                MATCH (u:User)-[:HAS_USER]->(userID:UserID {id: $user_id})-[:HAS_DOCUMENT]->(d:Document)
+                RETURN d.id AS id, d.content AS content, d.embedding AS embedding
+            """, user_id=user_id)
+        
         documents = []
         embeddings = []
 
@@ -73,8 +93,8 @@ def perform_similarity_search(query_embedding, top_k=10):
     return sorted(top_docs, key=lambda x: x[2], reverse=True)
 
 # Function to get relevant context from the similarity search
-def get_relevant_context(query_embedding):
-    results = perform_similarity_search(query_embedding)
+def get_relevant_context(query_embedding, user_type, user_id=None):
+    results = perform_similarity_search(query_embedding, user_type, user_id)
     context = ""
     for id, content, _ in results:
         context += content + "\n"
@@ -85,14 +105,21 @@ def generate_answer(prompt):
     response = model.generate_content(prompt)
     return response.text
 
-# Function to process and store documents
-def process_and_store_documents(file_path):
-    with open(file_path, 'r', encoding='utf-8') as file:
-        raw_text = file.read()
+# Function to process and store PDF documents
+def process_and_store_pdf(file_path, user_type, user_id=None):
+    documents = []
 
-    document = Document(page_content=raw_text)
+    # Extract text from each page of the PDF using pdfplumber
+    with pdfplumber.open(file_path) as pdf:
+        for page in pdf.pages:
+            raw_text = page.extract_text()
+            if raw_text:  # If there is text on the page, create a Document object
+                document = Document(page_content=raw_text)
+                documents.append(document)
+
+    # Split the document into chunks using the text splitter
     text_splitter = TokenTextSplitter(chunk_size=512, chunk_overlap=80)
-    documents = text_splitter.split_documents([document])
+    documents = text_splitter.split_documents(documents)
 
     # Get the text content from documents to pass to Jina AI
     texts = [doc.page_content for doc in documents]
@@ -102,19 +129,15 @@ def process_and_store_documents(file_path):
     print("Embeddings fetched.")
 
     # Store the document embeddings in Neo4j
-    store_embeddings_in_neo4j(documents, embeddings)
+    store_embeddings_in_neo4j(documents, embeddings, user_type, user_id)
     print("Embeddings stored in Neo4j.")
 
-# Main workflow
-def main():
-    # process_and_store_documents('letters.txt')
-
-    # Get query embedding using Jina AI
+def chatbot(user_type, user_id):
     query_text = input("Enter Query: ")
     query_embedding = get_jina_embeddings([query_text])[0]  # Take the first embedding from the response
 
     # Get relevant context from Neo4j
-    context = get_relevant_context(query_embedding)
+    context = get_relevant_context(query_embedding, user_type, user_id)
 
     # Generate the response using Gemini
     prompt = f"""
@@ -138,6 +161,23 @@ def main():
 
     print("Generated Answer:")
     print(answer)
+    
+    
+# Main workflow
+def main():
+    # Example of setting user type and ID
+    user_type = "user"  # or set to "common" if applicable
+    user_id = "user1"  # set to the specific user ID if user_type is "user"
+
+    # Uncomment the following line to process and store PDF documents
+    # process_and_store_pdf('UNIT 1.pdf', user_type, user_id)
+    chatbot(user_type, user_id)
+    driver.close()
+    
+
+
+    # Get query embedding using Jina AI
+    
 
 if __name__ == "__main__":
     main()
