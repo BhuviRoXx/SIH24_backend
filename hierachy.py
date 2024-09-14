@@ -1,6 +1,13 @@
 from neo4j import GraphDatabase
 import google.generativeai as genai
 
+
+
+
+
+
+
+
 # Define the connection details
 NEO4J_URI = "neo4j+s://2cbd2ddb.databases.neo4j.io"
 NEO4J_USERNAME = "neo4j"
